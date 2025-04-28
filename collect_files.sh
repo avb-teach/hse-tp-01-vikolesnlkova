@@ -48,24 +48,31 @@ copied_files=0
 #Проходка по каждому найденному файлу
 while read -r file; do
     filename=$(basename "$file")
+    name="${filename%.*}"   # имя без расширения
+    ext="${filename##*.}"   # расширение
     destination="$output_dir/$filename"
 
-#Если файл уже существует
-if [ -f "$destination" ]; then
-    i=1
+    #Если файл уже существует
+    if [ -f "$destination" ]; then
+        i=1
+    
+    #Пока файл с таким именем существует, прибавляем номер
+        while [ -f "$output_dir/${name}_$i.$ext" ]; do
+            i=$((i + 1))
+        done
+    
+    #Обновляем имя файла с номером
+        destination="$output_dir/${name}_$i.$ext"
+    fi
+    
+    # Копируем файл
+    cp "$file" "$destination"
+    copied_files=$((copied_files + 1))
 
-#Пока файл с таким именем существует, прибавляем номер
-    while [ -f "${destination}_$i" ]; do
-        i=$((i + 1))
-    done
+done < files.txt
+rm files.txt
 
-#Обновляем имя файла с номером
-    destination="${destination}_$i"
-fi
 
-# Копируем файл
-cp "$file" "$destination"
-copied_files=$((copied_files + 1))
 
 #Выводим результат
 echo

@@ -5,16 +5,16 @@ show_help() {
     exit 1
 }
 
-# Аргументы
+# Обработка аргументов
 max_depth=""
-if [ "$1" = "--max_depth" ]; then
-    if [ -z "$2" ]; then
-        echo "Error: --max_depth requires a number."
+while [[ "$1" == --max_depth* ]]; do
+    if [[ -z "$2" || ! "$2" =~ ^[0-9]+$ ]]; then
+        echo "Error: --max_depth requires a valid number."
         show_help
     fi
     max_depth="$2"
     shift 2
-fi
+done
 
 if [ $# -ne 2 ]; then
     echo "Error: Must provide input and output directories."
@@ -31,53 +31,43 @@ fi
 
 mkdir -p "$output_dir"
 
-# Поиск файлов
-temp_file=$(mktemp)
-trap 'rm -f "$temp_file"' EXIT
-
-if [ -n "$max_depth" ]; then
-    find "$input_dir" -maxdepth "$max_depth" -type f -print0 > "$temp_file"
-else
-    find "$input_dir" -type f -print0 > "$temp_file"
-fi
-
+# Поиск и копирование файлов
 copied_files=0
-total_files=$(tr -cd '\0' < "$temp_file" | wc -c)
+total_files=0
 
-# Копирование файлов
-while IFS= read -r -d '' file; do
-    # Относительный путь от входной директории
+find "$input_dir" $( [ -n "$max_depth" ] && echo "-maxdepth $max_depth" ) -type f | while IFS= read -r file; do
+    # Рассчитываем относительный путь
     rel_path="${file#$input_dir/}"
     dest_path="$output_dir/$rel_path"
     dest_dir=$(dirname "$dest_path")
 
     mkdir -p "$dest_dir"
 
+    # Обработка уникальности имени файла
     base_name=$(basename "$rel_path")
     name="${base_name%.*}"
     ext="${base_name##*.}"
-
+    
     if [ "$name" = "$base_name" ]; then
         ext=""
     fi
 
     final_dest="$dest_path"
-    if [ -f "$final_dest" ]; then
-        i=1
-        while true; do
-            if [ -n "$ext" ]; then
-                final_dest="${dest_dir}/${name}_$i.$ext"
-            else
-                final_dest="${dest_dir}/${name}_$i"
-            fi
-            [ ! -f "$final_dest" ] && break
-            i=$((i + 1))
-        done
-    fi
+    i=1
+    while [ -f "$final_dest" ]; do
+        if [ -n "$ext" ]; then
+            final_dest="${dest_dir}/${name}_$i.$ext"
+        else
+            final_dest="${dest_dir}/${name}_$i"
+        fi
+        i=$((i + 1))
+    done
 
+    # Копирование файла
     cp "$file" "$final_dest"
     copied_files=$((copied_files + 1))
-done < "$temp_file"
+    total_files=$((total_files + 1))
+done
 
 # Результат
 echo "Скопировано файлов: $copied_files из $total_files"

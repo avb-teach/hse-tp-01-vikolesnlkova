@@ -6,7 +6,7 @@ show_help() {
     exit 1
 }
 
-# Параметры
+# Аргументы
 max_depth=""
 if [ "$1" = "--max_depth" ]; then
     if [ -z "$2" ]; then
@@ -37,7 +37,7 @@ temp_file=$(mktemp)
 trap 'rm -f "$temp_file"' EXIT
 
 if [ -n "$max_depth" ]; then
-    find "$input_dir" -type f -maxdepth "$max_depth" -print0 > "$temp_file"
+    find "$input_dir" -maxdepth "$max_depth" -type f -print0 > "$temp_file"
 else
     find "$input_dir" -type f -print0 > "$temp_file"
 fi
@@ -45,8 +45,9 @@ fi
 copied_files=0
 total_files=$(tr -cd '\0' < "$temp_file" | wc -c)
 
-# Копирование
+# Копирование файлов
 while IFS= read -r -d '' file; do
+    # Относительный путь от входной директории
     rel_path="${file#$input_dir/}"
     dest_path="$output_dir/$rel_path"
     dest_dir=$(dirname "$dest_path")
@@ -77,12 +78,9 @@ while IFS= read -r -d '' file; do
 
     cp "$file" "$final_dest"
     copied_files=$((copied_files + 1))
-
 done < "$temp_file"
 
-# Вывод
+# Результат
 echo "Скопировано файлов: $copied_files из $total_files"
-if [ -n "$max_depth" ]; then
-    echo "Ограничение глубины: $max_depth"
-fi
+[ -n "$max_depth" ] && echo "Ограничение глубины: $max_depth"
 echo "Файлы сохранены в: $output_dir"

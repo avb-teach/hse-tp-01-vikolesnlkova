@@ -1,85 +1,81 @@
 #!/bin/bash
+set -e  #Остановить выполнение при ошибке
 
+#Справка
 show_help() {
-    echo "Usage: $0 [--max_depth N] <input_dir> <output_dir>"
+    echo "Использование: $0 [--max_depth N] <входная_директория> <выходная_директория>"
     exit 1
 }
 
-# Аргументы
+#Обработка аргументов
 max_depth=""
 if [ "$1" = "--max_depth" ]; then
     if [ -z "$2" ]; then
-        echo "Error: --max_depth requires a number."
+        echo "Ошибка: после --max_depth нужно указать число."
         show_help
     fi
     max_depth="$2"
     shift 2
 fi
 
+#Остается 2 аргумента
 if [ $# -ne 2 ]; then
-    echo "Error: Must provide input and output directories."
+    echo "Ошибка: нужно указать входную и выходную директории."
     show_help
 fi
 
 input_dir="$1"
 output_dir="$2"
 
+#Проверка директорий
 if [ ! -d "$input_dir" ]; then
-    echo "Error: Input directory '$input_dir' does not exist."
+    echo "Ошибка: входная директория '$input_dir' не существует."
     exit 1
 fi
 
 mkdir -p "$output_dir"
 
-# Поиск файлов
-temp_file=$(mktemp)
-trap 'rm -f "$temp_file"' EXIT
-
+#Команда поиска файлов
 if [ -n "$max_depth" ]; then
-    find "$input_dir" -maxdepth "$max_depth" -type f -print0 > "$temp_file"
+    find "$input_dir" -maxdepth "$max_depth" -type f > files.txt
 else
-    find "$input_dir" -type f -print0 > "$temp_file"
+    find "$input_dir" -type f > files.txt
 fi
 
+#Подсчёт общего количества файлов
+total_files=$(cat files.txt | wc -l)
 copied_files=0
-total_files=$(tr -cd '\0' < "$temp_file" | wc -c)
 
-# Копирование файлов
-while IFS= read -r -d '' file; do
-    # Относительный путь от входной директории
-    rel_path="${file#$input_dir/}"
-    dest_path="$output_dir/$rel_path"
-    dest_dir=$(dirname "$dest_path")
+#Проходка по каждому найденному файлу
+while read -r file; do
+    filename=$(basename "$file")
+    destination="$output_dir/$filename"
 
-    mkdir -p "$dest_dir"
-
-    base_name=$(basename "$rel_path")
-    name="${base_name%.*}"
-    ext="${base_name##*.}"
-
-    if [ "$name" = "$base_name" ]; then
-        ext=""
-    fi
-
-    final_dest="$dest_path"
-    if [ -f "$final_dest" ]; then
+    #Если файл уже существует
+    if [ -f "$destination" ]; then
         i=1
-        while true; do
-            if [ -n "$ext" ]; then
-                final_dest="${dest_dir}/${name}_$i.$ext"
-            else
-                final_dest="${dest_dir}/${name}_$i"
-            fi
-            [ ! -f "$final_dest" ] && break
+    
+    #Пока файл с таким именем существует, прибавляем номер
+        while [ -f "${destination}_$i" ]; do
             i=$((i + 1))
         done
+    
+    #Обновляем имя файла с номером
+        destination="${destination}_$i"
     fi
-
-    cp "$file" "$final_dest"
+    
+    # Копируем файл
+    cp "$file" "$destination"
     copied_files=$((copied_files + 1))
-done < "$temp_file"
 
-# Результат
+done < files.txt
+
+
+#Выводим результат
+echo
+echo "Результат:"
 echo "Скопировано файлов: $copied_files из $total_files"
-[ -n "$max_depth" ] && echo "Ограничение глубины: $max_depth"
-echo "Файлы сохранены в: $output_dir" ]
+if [ -n "$max_depth" ]; then
+    echo "Ограничение глубины: $max_depth"
+fi
+echo "Файлы сохранены в: $output_dir"

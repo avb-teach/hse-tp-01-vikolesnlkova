@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 show_help() {
     echo "Usage: $0 [--max_depth N] <input_dir> <output_dir>"

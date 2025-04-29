@@ -5,16 +5,16 @@ show_help() {
     exit 1
 }
 
-# Обработка аргументов
+# Аргументы
 max_depth=""
-while [[ "$1" == --max_depth* ]]; do
-    if [[ -z "$2" || ! "$2" =~ ^[0-9]+$ ]]; then
-        echo "Error: --max_depth requires a valid number."
+if [ "$1" = "--max_depth" ]; then
+    if [ -z "$2" ]; then
+        echo "Error: --max_depth requires a number."
         show_help
     fi
     max_depth="$2"
     shift 2
-done
+fi
 
 if [ $# -ne 2 ]; then
     echo "Error: Must provide input and output directories."
@@ -31,45 +31,55 @@ fi
 
 mkdir -p "$output_dir"
 
-# Поиск и копирование файлов
-copied_files=0
-total_files=0
+# Поиск файлов
+temp_file=$(mktemp)
+trap 'rm -f "$temp_file"' EXIT
 
-find "$input_dir" $( [ -n "$max_depth" ] && echo "-maxdepth $max_depth" ) -type f | while IFS= read -r file; do
-    # Рассчитываем относительный путь
+if [ -n "$max_depth" ]; then
+    find "$input_dir" -maxdepth "$max_depth" -type f -print0 > "$temp_file"
+else
+    find "$input_dir" -type f -print0 > "$temp_file"
+fi
+
+copied_files=0
+total_files=$(tr -cd '\0' < "$temp_file" | wc -c)
+
+# Копирование файлов
+while IFS= read -r -d '' file; do
+    # Относительный путь от входной директории
     rel_path="${file#$input_dir/}"
     dest_path="$output_dir/$rel_path"
     dest_dir=$(dirname "$dest_path")
 
     mkdir -p "$dest_dir"
 
-    # Обработка уникальности имени файла
     base_name=$(basename "$rel_path")
     name="${base_name%.*}"
     ext="${base_name##*.}"
-    
+
     if [ "$name" = "$base_name" ]; then
         ext=""
     fi
 
     final_dest="$dest_path"
-    i=1
-    while [ -f "$final_dest" ]; do
-        if [ -n "$ext" ]; then
-            final_dest="${dest_dir}/${name}_$i.$ext"
-        else
-            final_dest="${dest_dir}/${name}_$i"
-        fi
-        i=$((i + 1))
-    done
+    if [ -f "$final_dest" ]; then
+        i=1
+        while true; do
+            if [ -n "$ext" ]; then
+                final_dest="${dest_dir}/${name}_$i.$ext"
+            else
+                final_dest="${dest_dir}/${name}_$i"
+            fi
+            [ ! -f "$final_dest" ] && break
+            i=$((i + 1))
+        done
+    fi
 
-    # Копирование файла
     cp "$file" "$final_dest"
     copied_files=$((copied_files + 1))
-    total_files=$((total_files + 1))
-done
+done < "$temp_file"
 
 # Результат
 echo "Скопировано файлов: $copied_files из $total_files"
 [ -n "$max_depth" ] && echo "Ограничение глубины: $max_depth"
-echo "Файлы сохранены в: $output_dir"
+echo "Файлы сохранены в: $output_dir" ]

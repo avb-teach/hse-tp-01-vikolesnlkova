@@ -1,22 +1,21 @@
 #!/usr/bin/env bash
 
 #Обработка аргументов
-max_depth=""
 input_dir="$1"
 output_dir="$2"
-#if [ "$3" = "--max_depth" ]; then
-#    max_depth="$4"
-#fi
+
 mkdir -p "$output_dir"
+touch files.txt
+
 #Команда поиска файлов
 if [ -n "$max_depth" ]; then
-    find "$input_dir" -maxdepth "$max_depth" -type f > files
+    find "$input_dir" -maxdepth "$max_depth" -type f > files.txt
 else
-    find "$input_dir" -type f > files
+    find "$input_dir" -type f > files.txt
 fi
 
 #Подсчёт общего количества файлов
-total_files=$(cat files | wc -l)
+total_files=$(cat files.txt | wc -l)
 copied_files=0
 
 #Проходка по каждому найденному файлу

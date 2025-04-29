@@ -95,9 +95,9 @@ rm files.txt
 
 # Выводим результат
 echo
- echo "Результат:"
- echo "Скопировано файлов: $copied_files из $total_files"
- if [ -n "$max_depth" ]; then
-     echo "Ограничение глубины: $max_depth"
- fi
- echo "Файлы сохранены в: $output_dir"
+echo "Результат:"
+echo "Скопировано файлов: $copied_files из $total_files"
+if [ -n "$max_depth" ]; then
+    echo "Ограничение глубины: $max_depth"
+fi
+echo "Файлы сохранены в: $output_dir"

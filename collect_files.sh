@@ -6,41 +6,41 @@ show_help() {
     exit 1
 }
 
-#Обработка аргументов
+#Инициализация
 max_depth=""
-args=()
+input_dir=""
+output_dir=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --max_depth)
-            if [ -z "$2" ]; then
-                echo "Ошибка: после --max_depth нужно указать число."
-                show_help
-            fi
-            max_depth="$2"
-            shift 2
+            shift
+            max_depth="$1"
             ;;
         -*)
-            echo "Неизвестный флаг: $1"
+            echo "Неизвестный параметр: $1"
             show_help
             ;;
         *)
-            args+=("$1")
-            shift
+            if [ -z "$input_dir" ]; then
+                input_dir="$1"
+            elif [ -z "$output_dir" ]; then
+                output_dir="$1"
+            else
+                echo "Слишком много позиционных аргументов"
+                show_help
+            fi
             ;;
     esac
+    shift
 done
 
-#Проверка количества аргументов
-if [ ${#args[@]} -ne 2 ]; then
+#Проверка обязательных
+if [ -z "$input_dir" ] || [ -z "$output_dir" ]; then
     echo "Ошибка: нужно указать входную и выходную директории."
     show_help
 fi
 
-input_dir="${args[0]}"
-output_dir="${args[1]}"
-
-#Проверка директорий
 if [ ! -d "$input_dir" ]; then
     echo "Ошибка: входная директория '$input_dir' не существует."
     exit 1
@@ -48,10 +48,11 @@ fi
 
 mkdir -p "$output_dir"
 
-#Поиск файлов
+#Временный файл
 files=$(mktemp)
 trap 'rm -f "$files"' EXIT
 
+#Поиск файлов
 if [ -n "$max_depth" ]; then
     find "$input_dir" -maxdepth "$max_depth" -type f > "$files"
 else
@@ -66,11 +67,13 @@ while read -r file; do
     destination="$output_dir/$filename"
 
     if [ -f "$destination" ]; then
+        base="${filename%.*}"
+        ext="${filename##*.}"
         i=1
-        while [ -f "${output_dir}/${filename%.*}_$i.${filename##*.}" ]; do
+        while [ -f "${output_dir}/${base}_$i.${ext}" ]; do
             i=$((i + 1))
         done
-        destination="${output_dir}/${filename%.*}_$i.${filename##*.}"
+        destination="${output_dir}/${base}_$i.${ext}"
     fi
 
     cp "$file" "$destination"

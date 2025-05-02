@@ -36,11 +36,16 @@ fi
 
 mkdir -p "$output_dir"
 
+# Логгирование: для отладки выводим значение max_depth
+echo "max_depth: $max_depth"
+
 # Корректировка глубины (тест ожидает 1 = поддиректории, find считает 0 как текущий)
 if [ -n "$max_depth" ]; then
     find_depth=$((max_depth + 1))  # Учитываем, что find считает текущий каталог как уровень 1
+    echo "Поиск файлов с глубиной $find_depth"
     files=$(find "$input_dir" -maxdepth "$find_depth" -type f)
 else
+    echo "Поиск файлов без ограничения глубины"
     files=$(find "$input_dir" -type f)
 fi
 
@@ -74,7 +79,7 @@ while IFS= read -r file; do
     copied_files=$((copied_files + 1))
 done <<< "$files"
 
-# Вывод
+# Логгирование: выводим результаты
 echo "Скопировано файлов: $copied_files из $total_files"
 if [ -n "$max_depth" ]; then
     echo "Ограничение глубины: $max_depth"

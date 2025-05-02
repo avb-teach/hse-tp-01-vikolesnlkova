@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e 
+set -e
 
 show_help() {
     echo "Использование: $0 [--max_depth N] <входная_директория> <выходная_директория>"

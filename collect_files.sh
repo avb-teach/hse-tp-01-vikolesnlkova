@@ -30,7 +30,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-
 if [ ${#args[@]} -ne 2 ]; then
     echo "Ошибка: нужно указать входную и выходную директории."
     show_help
@@ -39,7 +38,6 @@ fi
 input_dir="${args[0]}"
 output_dir="${args[1]}"
 
-
 if [ ! -d "$input_dir" ]; then
     echo "Ошибка: входная директория '$input_dir' не существует."
     exit 1
@@ -47,11 +45,9 @@ fi
 
 mkdir -p "$output_dir"
 
-
 if [ -n "$max_depth" ]; then
     max_depth=$((max_depth + 1))
 fi
-
 
 files=$(mktemp)
 trap 'rm -f "$files"' EXIT
@@ -62,7 +58,6 @@ else
     find "$input_dir" -type f > "$files"
 fi
 
-
 total_files=$(wc -l < "$files")
 copied_files=0
 
@@ -70,7 +65,7 @@ while read -r file; do
     filename=$(basename "$file")
     destination="$output_dir/$filename"
 
-    
+
     if [ -f "$destination" ]; then
         name="${filename%.*}"
         ext="${filename##*.}"
@@ -84,7 +79,6 @@ while read -r file; do
     cp "$file" "$destination"
     copied_files=$((copied_files + 1))
 done < "$files"
-
 
 echo "Скопировано файлов: $copied_files из $total_files"
 [ -n "$max_depth" ] && echo "Ограничение глубины: $((max_depth - 1))"

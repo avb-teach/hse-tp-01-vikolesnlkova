@@ -2,28 +2,34 @@
 
 set -e  # Остановить выполнение при ошибке
 
-# Справка
 show_help() {
     echo "Использование: $0 [--max_depth N] <входная_директория> <выходная_директория>"
     exit 1
 }
 
-# Проверка, является ли строка числом
-is_number() {
-    [[ "$1" =~ ^[0-9]+$ ]]
+# Проверка является ли строка положительным целым числом
+is_positive_integer() {
+    [[ "$1" =~ ^[1-9][0-9]*$ ]]
 }
 
-# Обработка аргументов
+# Обработка аргументов командной строки
 max_depth=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --max_depth)
-            if [[ $# -lt 2 ]] || ! is_number "$2"; then
-                echo "Ошибка: после --max_depth нужно указать положительное целое число."
+            if [[ $# -lt 2 ]] || ! is_positive_integer "$2"; then
+                echo "Ошибка: --max_depth требует положительное целое число" >&2
                 show_help
             fi
             max_depth="$2"
             shift 2
+            ;;
+        --help|-h)
+            show_help
+            ;;
+        -*)
+            echo "Неизвестная опция: $1" >&2
+            show_help
             ;;
         *)
             break
@@ -31,61 +37,69 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Остается 2 аргумента
+# Проверка оставшихся аргументов
 if [[ $# -ne 2 ]]; then
-    echo "Ошибка: нужно указать входную и выходную директории."
+    echo "Ошибка: требуется указать входную и выходную директории" >&2
     show_help
 fi
 
 input_dir="$1"
 output_dir="$2"
 
-# Проверка директорий
+# Проверка существования входной директории
 if [[ ! -d "$input_dir" ]]; then
-    echo "Ошибка: входная директория '$input_dir' не существует."
+    echo "Ошибка: входная директория '$input_dir' не существует" >&2
     exit 1
 fi
 
+# Создание выходной директории
 mkdir -p "$output_dir"
 
-# Команда поиска файлов
+# Временный файл для списка файлов
+temp_file=$(mktemp)
+trap 'rm -f "$temp_file"' EXIT
+
+# Поиск файлов с учетом max_depth
 if [[ -n "$max_depth" ]]; then
-    find "$input_dir" -maxdepth "$max_depth" -type f > files.txt
+    if ! find "$input_dir" -maxdepth "$max_depth" -type f > "$temp_file"; then
+        echo "Ошибка при поиске файлов" >&2
+        exit 1
+    fi
 else
-    find "$input_dir" -type f > files.txt
+    if ! find "$input_dir" -type f > "$temp_file"; then
+        echo "Ошибка при поиске файлов" >&2
+        exit 1
+    fi
 fi
 
-# Подсчёт общего количества файлов
-total_files=$(wc -l < files.txt)
+# Подсчет файлов
+total_files=$(wc -l < "$temp_file" | tr -d ' ')
 copied_files=0
 
-# Проходка по каждому найденному файлу
-while read -r file; do
-    filename=$(basename "$file")
+# Копирование файлов
+while IFS= read -r file; do
+    filename=$(basename -- "$file")
     destination="$output_dir/$filename"
 
-    # Если файл уже существует
-    if [[ -f "$destination" ]]; then
+    # Обработка дубликатов
+    if [[ -e "$destination" ]]; then
         i=1
-        # Пока файл с таким именем существует, прибавляем номер
-        while [[ -f "${destination}_$i" ]]; do
-            i=$((i + 1))
+        while [[ -e "${destination}.${i}" ]]; do
+            ((i++))
         done
-        # Обновляем имя файла с номером
-        destination="${destination}_$i"
+        destination="${destination}.${i}"
     fi
 
-    # Копируем файл
-    cp "$file" "$destination"
-    copied_files=$((copied_files + 1))
+    if cp -- "$file" "$destination"; then
+        ((copied_files++))
+    else
+        echo "Ошибка при копировании $file" >&2
+    fi
+done < "$temp_file"
 
-done < files.txt
-
-# Выводим результат
+# Вывод результатов
 echo
 echo "Результат:"
 echo "Скопировано файлов: $copied_files из $total_files"
-if [[ -n "$max_depth" ]]; then
-    echo "Ограничение глубины: $max_depth"
-fi
+[[ -n "$max_depth" ]] && echo "Ограничение глубины: $max_depth"
 echo "Файлы сохранены в: $output_dir"

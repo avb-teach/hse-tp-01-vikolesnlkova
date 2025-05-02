@@ -38,16 +38,17 @@ mkdir -p "$output_dir"
 
 # Корректировка глубины (тест ожидает 1 = поддиректории, find считает 0 как текущий)
 if [ -n "$max_depth" ]; then
-    find_depth=$((max_depth + 1))
-    find "$input_dir" -maxdepth "$find_depth" -type f > files.txt
+    find_depth=$((max_depth + 1))  # Учитываем, что find считает текущий каталог как уровень 1
+    files=$(find "$input_dir" -maxdepth "$find_depth" -type f)
 else
-    find "$input_dir" -type f > files.txt
+    files=$(find "$input_dir" -type f)
 fi
 
-total_files=$(wc -l < files.txt)
+total_files=$(echo "$files" | wc -l)
 copied_files=0
 
-while read -r file; do
+# Перебор всех файлов и копирование
+while IFS= read -r file; do
     filename=$(basename "$file")
     base="${filename%.*}"
     ext="${filename##*.}"
@@ -71,9 +72,7 @@ while read -r file; do
 
     cp "$file" "$destination"
     copied_files=$((copied_files + 1))
-done < files.txt
-
-rm -f files.txt
+done <<< "$files"
 
 # Вывод
 echo "Скопировано файлов: $copied_files из $total_files"

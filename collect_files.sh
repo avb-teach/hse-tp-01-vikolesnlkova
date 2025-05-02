@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-set -e  # Остановить выполнение при ошибке
+set -e
 
-# Справка
 show_help() {
     echo "Использование: $0 [--max_depth N] <входная_директория> <выходная_директория>"
     exit 1
 }
 
-# Обработка аргументов
+# Инициализация
 max_depth=""
 args=()
 
+# Обработка аргументов
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --max_depth)
@@ -22,7 +22,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -*)
-            echo "Неизвестный флаг: $1"
+            echo "Неизвестный параметр: $1"
             show_help
             ;;
         *)
@@ -49,7 +49,7 @@ fi
 
 mkdir -p "$output_dir"
 
-# Корректировка max_depth для find (учитываем, что find считает root как уровень 0)
+# Корректировка max_depth для find (учитываем, что find считает текущий каталог как уровень 0)
 if [ -n "$max_depth" ]; then
     max_depth=$((max_depth + 1))
 fi
@@ -64,30 +64,28 @@ else
     find "$input_dir" -type f > "$files"
 fi
 
-# Подсчет и копирование
-total_files=$(wc -l < "$files")
+# Копирование файлов
 copied_files=0
+total_files=$(wc -l < "$files")
 
 while read -r file; do
     filename=$(basename "$file")
+    base="${filename%.*}"
+    ext="${filename##*.}"
     destination="$output_dir/$filename"
 
-    # Проверка на дубликаты и формирование уникального имени
-    if [ -f "$destination" ]; then
-        name="${filename%.*}"
-        ext="${filename##*.}"
+    if [ -e "$destination" ]; then
         i=1
-        while [ -f "$output_dir/${name}_$i.$ext" ]; do
+        while [ -e "$output_dir/${base}_$i.$ext" ]; do
             i=$((i + 1))
         done
-        destination="$output_dir/${name}_$i.$ext"
+        destination="$output_dir/${base}_$i.$ext"
     fi
 
     cp "$file" "$destination"
     copied_files=$((copied_files + 1))
 done < "$files"
 
-# Вывод результатов
 echo "Скопировано файлов: $copied_files из $total_files"
 [ -n "$max_depth" ] && echo "Ограничение глубины: $((max_depth - 1))"
 echo "Файлы сохранены в: $output_dir"

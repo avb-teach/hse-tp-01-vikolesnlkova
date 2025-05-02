@@ -49,15 +49,11 @@ fi
 
 mkdir -p "$output_dir"
 
-# Корректировка max_depth для find (учитываем, что find считает текущий каталог как уровень 0)
-if [ -n "$max_depth" ]; then
-    max_depth=$((max_depth + 1))
-fi
-
 # Поиск файлов
 files=$(mktemp)
 trap 'rm -f "$files"' EXIT
 
+# Поиск файлов с учётом max_depth
 if [ -n "$max_depth" ]; then
     find "$input_dir" -maxdepth "$max_depth" -type f > "$files"
 else
@@ -86,6 +82,7 @@ while read -r file; do
     copied_files=$((copied_files + 1))
 done < "$files"
 
+# Выводим результат
 echo "Скопировано файлов: $copied_files из $total_files"
-[ -n "$max_depth" ] && echo "Ограничение глубины: $((max_depth - 1))"
+[ -n "$max_depth" ] && echo "Ограничение глубины: $max_depth"
 echo "Файлы сохранены в: $output_dir"

@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-set -e
+set -e  # Остановить выполнение при ошибке
 
+#Справка
 show_help() {
     echo "Использование: $0 [--max_depth N] <входная_директория> <выходная_директория>"
     exit 1
 }
 
+#Обработка аргументов
 max_depth=""
 args=()
 
@@ -30,6 +32,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+#Проверка количества аргументов
 if [ ${#args[@]} -ne 2 ]; then
     echo "Ошибка: нужно указать входную и выходную директории."
     show_help
@@ -38,6 +41,7 @@ fi
 input_dir="${args[0]}"
 output_dir="${args[1]}"
 
+#Проверка существования входной директории
 if [ ! -d "$input_dir" ]; then
     echo "Ошибка: входная директория '$input_dir' не существует."
     exit 1
@@ -45,6 +49,12 @@ fi
 
 mkdir -p "$output_dir"
 
+#Корректировка max_depth для find (учитываем, что find считает root как уровень 0)
+if [ -n "$max_depth" ]; then
+    max_depth=$((max_depth + 1))
+fi
+
+#Поиск файлов
 files=$(mktemp)
 trap 'rm -f "$files"' EXIT
 
@@ -54,6 +64,7 @@ else
     find "$input_dir" -type f > "$files"
 fi
 
+#Подсчет и копирование
 total_files=$(wc -l < "$files")
 copied_files=0
 
@@ -61,6 +72,7 @@ while read -r file; do
     filename=$(basename "$file")
     destination="$output_dir/$filename"
 
+    #Проверка на дубликаты и формирование уникального имени
     if [ -f "$destination" ]; then
         name="${filename%.*}"
         ext="${filename##*.}"
@@ -75,6 +87,7 @@ while read -r file; do
     copied_files=$((copied_files + 1))
 done < "$files"
 
+#Вывод результатов
 echo "Скопировано файлов: $copied_files из $total_files"
-[ -n "$max_depth" ] && echo "Ограничение глубины: $max_depth"
+[ -n "$max_depth" ] && echo "Ограничение глубины: $((max_depth - 1))"
 echo "Файлы сохранены в: $output_dir"

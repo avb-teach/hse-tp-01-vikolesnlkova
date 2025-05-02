@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e 
+set -e
 
 show_help() {
     echo "Использование: $0 [--max_depth N] <входная_директория> <выходная_директория>"
@@ -45,10 +45,6 @@ fi
 
 mkdir -p "$output_dir"
 
-if [ -n "$max_depth" ]; then
-    max_depth=$((max_depth + 1))
-fi
-
 files=$(mktemp)
 trap 'rm -f "$files"' EXIT
 
@@ -65,7 +61,6 @@ while read -r file; do
     filename=$(basename "$file")
     destination="$output_dir/$filename"
 
-
     if [ -f "$destination" ]; then
         name="${filename%.*}"
         ext="${filename##*.}"
@@ -81,5 +76,5 @@ while read -r file; do
 done < "$files"
 
 echo "Скопировано файлов: $copied_files из $total_files"
-[ -n "$max_depth" ] && echo "Ограничение глубины: $((max_depth - 1))"
+[ -n "$max_depth" ] && echo "Ограничение глубины: $max_depth"
 echo "Файлы сохранены в: $output_dir"

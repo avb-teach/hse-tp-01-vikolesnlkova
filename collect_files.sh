@@ -2,27 +2,27 @@
 set -e
 
 show_help() {
-    echo "Использование: $0 [--max_depth N] <входная_директория> <выходная_директория>"
+    echo "Usage: $0 [--max_depth N] <input_dir> <output_dir>"
     exit 1
 }
 
-# Инициализация
+# Defaults
 max_depth=""
 args=()
 
-# Обработка аргументов
+# Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --max_depth)
-            if [ -z "$2" ]; then
-                echo "Ошибка: после --max_depth нужно указать число."
+            if [[ -z "$2" || "$2" =~ ^- ]]; then
+                echo "Error: --max_depth requires a number"
                 show_help
             fi
             max_depth="$2"
             shift 2
             ;;
         -*)
-            echo "Неизвестный параметр: $1"
+            echo "Unknown option: $1"
             show_help
             ;;
         *)
@@ -32,57 +32,53 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Проверка количества аргументов
-if [ ${#args[@]} -ne 2 ]; then
-    echo "Ошибка: нужно указать входную и выходную директории."
+# Require input and output dir
+if [[ ${#args[@]} -ne 2 ]]; then
+    echo "Error: Must provide input and output directories"
     show_help
 fi
 
 input_dir="${args[0]}"
 output_dir="${args[1]}"
 
-# Проверка существования входной директории
-if [ ! -d "$input_dir" ]; then
-    echo "Ошибка: входная директория '$input_dir' не существует."
+# Check input dir
+if [[ ! -d "$input_dir" ]]; then
+    echo "Error: Input directory '$input_dir' does not exist"
     exit 1
 fi
 
 mkdir -p "$output_dir"
 
-# Поиск файлов
+# File finding
 files=$(mktemp)
 trap 'rm -f "$files"' EXIT
 
-# Поиск файлов с учётом max_depth
-if [ -n "$max_depth" ]; then
-    find "$input_dir" -maxdepth "$max_depth" -type f > "$files"
+if [[ -n "$max_depth" ]]; then
+    find "$input_dir" -type f -maxdepth "$max_depth" > "$files"
 else
     find "$input_dir" -type f > "$files"
 fi
 
-# Копирование файлов
-copied_files=0
-total_files=$(wc -l < "$files")
+# Copying files
+copied=0
+while IFS= read -r file; do
+    name=$(basename "$file")
+    dest="$output_dir/$name"
 
-while read -r file; do
-    filename=$(basename "$file")
-    base="${filename%.*}"
-    ext="${filename##*.}"
-    destination="$output_dir/$filename"
-
-    if [ -e "$destination" ]; then
+    if [[ -e "$dest" ]]; then
+        base="${name%.*}"
+        ext="${name##*.}"
         i=1
-        while [ -e "$output_dir/${base}_$i.$ext" ]; do
+        while [[ -e "$output_dir/${base}_$i.$ext" ]]; do
             i=$((i + 1))
         done
-        destination="$output_dir/${base}_$i.$ext"
+        dest="$output_dir/${base}_$i.$ext"
     fi
 
-    cp "$file" "$destination"
-    copied_files=$((copied_files + 1))
+    cp "$file" "$dest"
+    copied=$((copied + 1))
 done < "$files"
 
-# Выводим результат
-echo "Скопировано файлов: $copied_files из $total_files"
-[ -n "$max_depth" ] && echo "Ограничение глубины: $max_depth"
-echo "Файлы сохранены в: $output_dir"
+# Output
+echo "Copied $copied files to $output_dir"
+[[ -n "$max_depth" ]] && echo "Max depth: $max_depth"
